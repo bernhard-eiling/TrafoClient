@@ -1,6 +1,5 @@
 #include <SoftwareSerial.h>
-#include <WiFlyHQ.h>
-SoftwareSerial wifiSerial(8,9);
+//SoftwareSerial wifiSerial(8,9);
 
 const char mySSID[] = "TrafoControl";
 const char myPassword[] = "123";
@@ -18,9 +17,10 @@ void setup()
     Serial.print("Free memory: ");
     Serial.println(wifly.getFreeMemory(),DEC);
 
-    wifiSerial.begin(9600);
+    //wifiSerial.begin(9600);
 
-    if (!wifly.begin(&wifiSerial, &Serial)) {
+    //if (!wifly.begin(&wifiSerial, &Serial1)) {
+    if (!wifly.begin(&Serial1)) {
         Serial.println("Failed to start wifly");
 	terminal();
     }
@@ -33,9 +33,13 @@ void setup()
     }
     
     join();
+    
+    pingGateway();
 
     wifly.getGateway(buf, sizeof(buf));
-    wifly.setIpProtocol(WIFLY_PROTOCOL_TCP);
+    //wifly.setIpProtocol(WIFLY_PROTOCOL_TCP);
+    //wifly.setIpProtocol(WIFLY_PROTOCOL_UDP);
+    wifly.setIpProtocol(WIFLY_PROTOCOL_TCP_CLIENT);
 
     Serial.print("MAC: ");
     Serial.println(wifly.getMAC(buf, sizeof(buf)));
@@ -45,10 +49,11 @@ void setup()
     Serial.println(wifly.getNetmask(buf, sizeof(buf)));
     Serial.print("Gateway: ");
     Serial.println(wifly.getGateway(buf, sizeof(buf)));
+    
+    wifly.setDeviceID("Trafo-Client");
+    Serial.print("DeviceID: ");
+    Serial.println(wifly.getDeviceID(buf, sizeof(buf)));
 }
-
-uint32_t lastSend = 0;
-uint32_t count=0;
 
 void loop()
 {
@@ -73,9 +78,10 @@ void join() {
       
 	Serial.println("Joining network");
 	wifly.setSSID(mySSID);
-	wifly.setPassphrase(myPassword);
-	wifly.enableDHCP();
-        wifly.setIP("192.168.1.45");
+	//wifly.setPassphrase(myPassword);
+	//wifly.enableDHCP();
+        wifly.setIP("192.168.1.");
+        wifly.save();
         // IP wont be set...
 
 	if (wifly.join()) {
@@ -83,6 +89,21 @@ void join() {
 	} else {
 	    Serial.println("Failed to join wifi network");
 	}
+}
+
+void pingGateway() {
+    /* Ping the gateway */
+    char buf[32];
+    wifly.getGateway(buf, sizeof(buf));
+
+    Serial.print("ping ");
+    Serial.print(buf);
+    Serial.print(" ... ");
+    if (wifly.ping(buf)) {
+	Serial.println("ok");
+    } else {
+	Serial.println("failed");
+    }
 }
 
 void terminal()
@@ -94,7 +115,6 @@ void terminal()
             Serial.println("Waiting for incoming");
 	    Serial.write(wifly.read());
 	}
-
 
 	if (Serial.available()) {
 	    wifly.write(Serial.read());
