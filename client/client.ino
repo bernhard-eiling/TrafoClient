@@ -1,123 +1,40 @@
-#include <SoftwareSerial.h>
-//SoftwareSerial wifiSerial(8,9);
-
-const char mySSID[] = "TrafoControl";
-const char myPassword[] = "123";
-
-void terminal();
+#include <WiFlyHQ.h>
+#include <ArdOSCForWiFlyHQ.h>
 
 WiFly wifly;
+OSCServer server(&wifly);
 
 void setup()
-{
-    char buf[32];
-
-    Serial.begin(115200);
-    Serial.println("Starting");
-    Serial.print("Free memory: ");
-    Serial.println(wifly.getFreeMemory(),DEC);
-
-    //wifiSerial.begin(9600);
-
-    //if (!wifly.begin(&wifiSerial, &Serial1)) {
-    if (!wifly.begin(&Serial1)) {
-        Serial.println("Failed to start wifly");
-	terminal();
-    }
-
-    if (wifly.getFlushTimeout() != 10) {
-        Serial.println("Restoring flush timeout to 10msecs");
-        wifly.setFlushTimeout(10);
-	wifly.save();
-	wifly.reboot();
-    }
-    
-    join();
-    
-    pingGateway();
-
-    wifly.getGateway(buf, sizeof(buf));
-    //wifly.setIpProtocol(WIFLY_PROTOCOL_TCP);
-    //wifly.setIpProtocol(WIFLY_PROTOCOL_UDP);
-    wifly.setIpProtocol(WIFLY_PROTOCOL_TCP_CLIENT);
-
-    Serial.print("MAC: ");
-    Serial.println(wifly.getMAC(buf, sizeof(buf)));
-    Serial.print("IP: ");
-    Serial.println(wifly.getIP(buf, sizeof(buf)));
-    Serial.print("Netmask: ");
-    Serial.println(wifly.getNetmask(buf, sizeof(buf)));
-    Serial.print("Gateway: ");
-    Serial.println(wifly.getGateway(buf, sizeof(buf)));
-    
-    wifly.setDeviceID("Trafo-Client");
-    Serial.print("DeviceID: ");
-    Serial.println(wifly.getDeviceID(buf, sizeof(buf)));
+{ 
+  Serial.begin(115200);
+  wifly.setupForUDP<HardwareSerial>(
+    &Serial1,   //the serial you want to use (this can also be a software serial)
+    115200, // if you use a hardware serial, I would recommend the full 115200. This does not work with a software serial.
+    true,	// should we try some other baudrates if the currently selected one fails?
+    "TrafoControl",  //Your Wifi Name (SSID)
+    //"SommerInAltTreptow",  //Your Wifi Name (SSID)
+    "1234567890", //Your Wifi Password
+    "WiFly",                 // Device name for identification in the network
+    0,         // IP Adress of the Wifly. if 0 (without quotes), it will use dhcp to get an ip
+    997,                    // WiFly receive port
+    "255.255.255.255",       // Where to send outgoing Osc messages. "255.255.255.255" will send to all hosts in the subnet
+    8757,                     // outgoing port
+    true	// show debug information on Serial
+  );
+  //wifly.printStatusInfo(); //print some debug information 
+  server.addCallback("/test/function",&blinkAway);
 }
+
 
 void loop()
 {
-
-
-    if (wifly.isConnected()) {
-      Serial.println("Connected");
-    } else {
-      //join();
-    }
-
-    if (Serial.available()) {
-        /* if the user hits 't', switch to the terminal for debugging */
-        if (Serial.read() == 't') {
-	    terminal();
-	}
-    }
-
+  server.availableCheck(2);
 }
 
-void join() {
-      
-	Serial.println("Joining network");
-	wifly.setSSID(mySSID);
-	//wifly.setPassphrase(myPassword);
-	//wifly.enableDHCP();
-        wifly.setIP("192.168.1.");
-        wifly.save();
-        // IP wont be set...
+void blinkAway(OSCMessage *message) {
+  String fadeValue = message -> getArgStringData(0);
+  Serial.println(fadeValue);
 
-	if (wifly.join()) {
-	    Serial.println("Joined wifi network");
-	} else {
-	    Serial.println("Failed to join wifi network");
-	}
+  Serial.println("blink");
 }
 
-void pingGateway() {
-    /* Ping the gateway */
-    char buf[32];
-    wifly.getGateway(buf, sizeof(buf));
-
-    Serial.print("ping ");
-    Serial.print(buf);
-    Serial.print(" ... ");
-    if (wifly.ping(buf)) {
-	Serial.println("ok");
-    } else {
-	Serial.println("failed");
-    }
-}
-
-void terminal()
-{
-    Serial.println("Terminal ready");
-    Serial.println(wifly.available());
-    while (1) {
-	if (wifly.available() > 0) {
-            Serial.println("Waiting for incoming");
-	    Serial.write(wifly.read());
-	}
-
-	if (Serial.available()) {
-	    wifly.write(Serial.read());
-	}
-    }
-}
