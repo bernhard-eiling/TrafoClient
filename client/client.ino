@@ -1,17 +1,18 @@
 #include <SPI.h>
 #include <WiFlyHQ.h>
 #include "LedController.h"
+#include <stdlib.h>
 
 #define numLeds 34
 #define numChannels 3
 #define maxNumFrames 100
+#define numFrames 2
 
 WiFly wifly;
 LedController controller;
-int frameArray[numLeds][numChannels];
-//int numFrameChannels = maxNumFrames * numChannels;
-String rawFrames[102];
+
 int loadCounter = 0;
+int animationArray[numFrames][numLeds][numChannels];
 
 void setup()
 { 
@@ -20,19 +21,18 @@ void setup()
   controller.setupLedControl();
 
   // SETUP WiFLy
-  Serial.begin(115200);
+  Serial1.begin(115200);
   wifly.setupForUDP<HardwareSerial>(
-  &Serial1,   //the serial you want to use (this can also be a software serial)
-  115200, // if you use a hardware serial, I would recommend the full 115200. This does not work with a software serial.
-  true,	// should we try some other baudrates if the currently selected one fails?
-  "TrafoControl",  //Your Wifi Name (SSID)
-  //"SommerInAltTreptow",  //Your Wifi Name (SSID)
-  "1234567890", //Your Wifi Password
-  "WiFly",                 // Device name for identification in the network
-  0,         // IP Adress of the Wifly. if 0 (without quotes), it will use dhcp to get an ip
-  997,                    // WiFly receive port
-  "255.255.255.255",       // Where to send outgoing Osc messages. "255.255.255.255" will send to all hosts in the subnet
-  8757,                     // outgoing port
+  &Serial1,
+  115200, // baudrate
+  true, // scan for baudrates
+  "TrafoControl", // SSID
+  "1234567890", // password
+  "TrafoClient", // Device name
+  0, // using 0 enables DHCP
+  997, // port
+  "255.255.255.255", // send to all hosts in the subnet
+  8757,  // outgoing port (not needed)
   true	// show debug information on Serial
   );
 }
@@ -43,80 +43,41 @@ void loop()
 
   /////////////////////////
   // SERIAL READING
-  String data;
-
   if (Serial1.available()) {
-    data = Serial1.readStringUntil('t');
-    //data = Serial1.readString();
+    String data = Serial1.readStringUntil('t');
+    
+    Serial.print("data: ");
     Serial.println(data);
-    //String frame;
 
-    if (data.startsWith("load")) {
-      rawFrames[loadCounter] = data;  
+    if (data.startsWith("l")) {
+      parseLoadHexa(data, loadCounter);
       loadCounter++;
-      //parseLoad(data);
-    } else if (data.startsWith("sync")) {
-      parseSync(data);
-    } else if (data.startsWith("finish")) {
-      for (int i = 0; i < loadCounter; i++) {
-        Serial.println(rawFrames[i]);
-        //parseLoad(rawFrames[i]);
-        //Serial.write("\n------+----------+-------\n"); 
+    } else if (data.startsWith("s")) {
+      data = data.substring(1);
+      controller.loadFrame(animationArray, data.toInt());
+    } else if (data.startsWith("f")) {
+      /*
+      for (int i = 0; i < numFrames; i++) {
+        for (int k = 0; k < numLeds; k++) {
+          for (int j = 0; j < numChannels; j++) {
+            Serial.print(animationArray[i][k][j]);
+            Serial.println(", ");
+          }
+        }
       }
+      */
       loadCounter = 0;
     }
-    
+  }
+}
+
 /*
-    for (int i = 0; i < numLeds; i++) {
-      for (int k = 0; k < numChannels; k++) {
-        Serial.print(frameArray[i][k]);
-        Serial.print(", ");
-      }
-    }
-*/
-    Serial.write("\n-----------------------\n"); 
-  }
-  if (Serial.available()) {
-    int inByte = Serial.read();
-    Serial1.write(inByte); 
-    Serial1.write("xxxxxxxxxxxxxxxxxxxxxx\n"); 
-  }
-
-  ////////////////////////////
-  // WiFly CONTROLS
-  /*
-  if (wifly.available() > 0) {
-   Serial.write(wifly.read());
-   Serial.println("-----------------------"); 
-   }
-   */
-
-  ////////////////////
-  // LED CONTROLS
-  /*
-  controller.white();
-   controller.sendColorBuffer();
-   delay(100);
-   controller.black();
-   controller.sendColorBuffer();
-   delay(100);
-   */
-}
-
-void parseSync(String frame) {
-
-}
-
-void parseChannel(String channel) {
-  
-}
-
-void parseLoad(String frame) {
+void parseLoad(String frame, int frameIndex) {
   int endFramePos;
   int endChannelPos;
 
-  frame = frame.substring(4);
-  Serial.println(frame);
+  frame = frame.substring(1);
+  //Serial.println(frame);
 
   for (int ledIndex = 0; ledIndex < numLeds; ledIndex++) {
     endFramePos = frame.indexOf('c');
@@ -125,18 +86,28 @@ void parseLoad(String frame) {
       for (int channelIndex = 0; channelIndex < numChannels; channelIndex++) {
         endChannelPos = led.indexOf(',');
         if (endChannelPos != -1) {
-          String value = led.substring(0, endChannelPos);
-          frameArray[ledIndex][channelIndex] = value.toInt();
+          animationArray[frameIndex][ledIndex][channelIndex] = led.substring(0, endChannelPos).toInt();
         }
         led = led.substring(endChannelPos + 1, led.length());
       }
-      frame = frame.substring(endFramePos+1, frame.length());
+      frame = frame.substring(endFramePos + 1, frame.length());
     }
   }
 }
-
-
-
+*/
+void parseLoadHexa(String frame, int frameIndex) {
+  frame = frame.substring(1);
+  for (int ledIndex = 0; ledIndex < numLeds; ledIndex++) {
+    for (int channelIndex = 0; channelIndex < numChannels; channelIndex++) {
+      int subIndex = ledIndex * 6 + channelIndex * 2;
+      String stringValue = frame.substring(subIndex, subIndex + 2);
+      char charString[2];
+      stringValue.toCharArray(charString, 4);
+      int val = strtoul(charString, NULL, 16);
+      animationArray[frameIndex][ledIndex][channelIndex] = val;
+    }
+  }
+}
 
 
 

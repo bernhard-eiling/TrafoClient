@@ -24,6 +24,7 @@ public:
   void setupLedControl();
   bool contains(int* array, int length,int value);
 
+  void loadFrame(int animationArray[][34][3], int frameIndex);
   void red();
   void white();
   void black();
@@ -101,6 +102,15 @@ void LedController::sendColorBuffer(){
   }
 }
 
+void LedController::loadFrame(int animationArray[][34][3], int frameIndex) {
+  for(int i = 0; i < numLeds; i++) {
+    colorBuffer[displayLeds[i]].r = animationArray[frameIndex][i][0];
+    colorBuffer[displayLeds[i]].g = animationArray[frameIndex][i][1];
+    colorBuffer[displayLeds[i]].b = animationArray[frameIndex][i][2];
+  }
+  sendColorBuffer();
+}
+
 void LedController::red(){
   for(int i = 0; i < numLeds; i++) {
     colorBuffer[displayLeds[i]].r = 255;
@@ -124,4 +134,5 @@ void LedController::black(){
     colorBuffer[displayLeds[i]].b = 0;
   }
 }
+
 
