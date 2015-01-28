@@ -21,6 +21,7 @@ public:
   void setupLedControl();
   void loadFrame(int animationArray[][34][3], int frameIndex);
   void sendColorBuffer();
+  void loadRed();
 };
 
 LedController::LedController(){
@@ -50,7 +51,6 @@ void LedController::setupLedControl() {
   float totalMaxCurrent = numLeds * 3 * 20; //each color draws 20mA max per Pixel
   float safeMultiplier = totalCurrentLimit / totalMaxCurrent;
   brightnessMultiplier = floor(safeMultiplier * 255);
-
 }
 
 void LedController::sendColorBuffer(){
@@ -64,9 +64,25 @@ void LedController::sendColorBuffer(){
 
 void LedController::loadFrame(int animationArray[][numLeds][numChannels], int frameIndex) {
   for(int i = 0; i < numLeds; i++) {
+    /*
+    colorBuffer[i].r = animationArray[frameIndex][i][0];
+    colorBuffer[i].g = animationArray[frameIndex][i][1];
+    colorBuffer[i].b = animationArray[frameIndex][i][2];
+    */
     colorBuffer[displayLeds[i]].r = animationArray[frameIndex][i][0];
     colorBuffer[displayLeds[i]].g = animationArray[frameIndex][i][1];
     colorBuffer[displayLeds[i]].b = animationArray[frameIndex][i][2];
+    
+  }
+  sendColorBuffer();
+}
+
+void LedController::loadRed() {
+  for(int i = 0; i < numLeds; i++) {
+    colorBuffer[displayLeds[i]].r = 255;
+    colorBuffer[displayLeds[i]].g = 0;
+    colorBuffer[displayLeds[i]].b = 0;
+    
   }
   sendColorBuffer();
 }
